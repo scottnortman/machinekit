@@ -10,7 +10,7 @@
 
 # Launch the setup script to make sure hardware setup looks good
 #loadusr -w /home/machinekit/machinekit/configs/ARM.BeagleBone.CRAMPS/setup.sh
-loadusr -w ./setup.sh
+loadusr -w ./sdn_xyz_setup.sh
 #loadusr -w config-pin -f ./CRAMPS.bbio
 
 
