@@ -1,3 +1,5 @@
+
+
 # #######################################
 #
 # HAL file for BeagleBone + CRAMPS cape with 4 steppers
@@ -16,28 +18,21 @@ loadusr -w ./setup.sh
 # Core EMC/HAL Loads
 # ###################################
 # kinematics
+# 
+# https://github.com/LinuxCNC/linuxcnc/blob/master/src/emc/kinematics/trivkins.c
 loadrt trivkins
-#loadrt core_xy_kins
 
 # trajectory planner
+# https://github.com/LinuxCNC/linuxcnc/blob/master/src/emc/tp/tp.c
 loadrt tp
 
 # motion controller, get name and thread periods from ini file
+# http://www.machinekit.io/docs/man/man9/motion/
 loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=trivkins
-#loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=core_xy_kins
 
 # load low-level drivers
 loadrt hal_bb_gpio output_pins=816,822,823,824,825,826,914,923,925 input_pins=807,808,809,810,817,911,913
 loadrt [PRUCONF](DRIVER) prucode=$(HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG) halname=hpg
-loadrt pid count=2
-loadrt limit1 count=2
-
-
-# Python user-mode HAL module to read ADC value and generate a thermostat output for PWM
-# t = Thermistor table (only epcos_B57560G1104 or 1 supported for now)
-# a = analog input channel
-#loadusr -Wn Therm ./ReadTemp.py -n Therm --num_chan 2 -t 1 1 -a 4 5
-loadusr -Wn Therm hal_temp_bbb -n Therm -c 04:epcos_B57560G1104,05:epcos_B57560G1104 -b CRAMPS
 
 # ################################################
 # THREADS
@@ -47,10 +42,6 @@ addf hpg.capture-position                 servo-thread
 addf bb_gpio.read                         servo-thread
 addf motion-command-handler               servo-thread
 addf motion-controller                    servo-thread
-addf pid.0.do-pid-calcs                   servo-thread
-addf pid.1.do-pid-calcs                   servo-thread
-addf limit1.0                             servo-thread
-addf limit1.1                             servo-thread
 addf hpg.update                           servo-thread
 addf bb_gpio.write                        servo-thread
 
@@ -173,39 +164,7 @@ setp hpg.stepgen.02.steppin        819
 # P8.29 PRU1.out9
 setp hpg.stepgen.02.dirpin         818
 
-
-# ################
-# A [3] Axis (Extruder)
-# ################
-
-# axis enable chain
-newsig emcmot.03.enable bit
-sets emcmot.03.enable FALSE
-
-net emcmot.03.enable <= axis.3.amp-enable-out
-net emcmot.03.enable => hpg.stepgen.03.enable
-
-
-# position command and feedback
-net emcmot.03.pos-cmd <= axis.3.motor-pos-cmd
-net emcmot.03.pos-cmd => hpg.stepgen.03.position-cmd
-
-net motor.03.pos-fb <= hpg.stepgen.03.position-fb
-net motor.03.pos-fb => axis.3.motor-pos-fb
-
-
-# timing parameters
-setp hpg.stepgen.03.dirsetup        [AXIS_3]DIRSETUP
-setp hpg.stepgen.03.dirhold         [AXIS_3]DIRHOLD
-
-setp hpg.stepgen.03.steplen         [AXIS_3]STEPLEN
-setp hpg.stepgen.03.stepspace       [AXIS_3]STEPSPACE
-
-setp hpg.stepgen.03.position-scale  [AXIS_3]SCALE
-
-setp hpg.stepgen.03.maxvel          [AXIS_3]STEPGEN_MAX_VEL
-setp hpg.stepgen.03.maxaccel        [AXIS_3]STEPGEN_MAX_ACC
-
+\
 #setp hpg.stepgen.03.step_type       0
 # P8.30 GPIO2.25
 setp hpg.stepgen.03.steppin        916
@@ -240,7 +199,7 @@ net emcmot.00.enable => bb_gpio.p9.out-23
 
 # Tie machine power signal to the CRAMPS LED
 # Feel free to tie any other signal you like to the LED
-#net emcmot.00.enable => bb_gpio.p9.out-25
+net emcmot.00.enable => bb_gpio.p9.out-25
 
 # ################
 # Limit Switches
@@ -269,15 +228,17 @@ setp bb_gpio.p9.in-13.invert 1
 
 # Uncomment if you actually have limit switches setup
 # You probably want to setup homing in the INI file, as well
-#net limit-x-min => axis.0.home-sw-in
-#net limit-x-min => axis.0.neg-lim-sw-in
-#net limit-x-max => axis.0.pos-lim-sw-in
-#net limit-y-min => axis.1.home-sw-in
-#net limit-y-min => axis.1.neg-lim-sw-in
-#net limit-y-max => axis.1.pos-lim-sw-in
-#net limit-z-min => axis.2.home-sw-in
-#net limit-z-min => axis.2.neg-lim-sw-in
-#net limit-z-max => axis.2.pos-lim-sw-in
+net limit-x-min => axis.0.home-sw-in
+net limit-x-min => axis.0.neg-lim-sw-in
+net limit-x-max => axis.0.pos-lim-sw-in
+
+net limit-y-min => axis.1.home-sw-in
+net limit-y-min => axis.1.neg-lim-sw-in
+net limit-y-max => axis.1.pos-lim-sw-in
+
+net limit-z-min => axis.2.home-sw-in
+net limit-z-min => axis.2.neg-lim-sw-in
+net limit-z-max => axis.2.pos-lim-sw-in
 
 # ################
 # Servo signals
@@ -296,124 +257,25 @@ setp bb_gpio.p9.in-13.invert 1
 
 # Signal the hardware that eMMC has been disabled and it is safe
 # to drive the signals connected to eMMC lines (active low)
-newsig eMMC-disabled bit
-sets eMMC-disabled 0
-net eMMC-disabled bb_gpio.p8.out-16
-setp bb_gpio.p8.out-16.invert 1
+# newsig eMMC-disabled bit
+# sets eMMC-disabled 0
+# net eMMC-disabled bb_gpio.p8.out-16
+# setp bb_gpio.p8.out-16.invert 1
 
-# Servo signals, output only, driven by an 'ACT125
+# # Servo signals, output only, driven by an 'ACT125
 
-newsig servo.1 bit
-newsig servo.2 bit
-newsig servo.3 bit
-newsig servo.4 bit
+# newsig servo.1 bit
+# newsig servo.2 bit
+# newsig servo.3 bit
+# newsig servo.4 bit
 
-sets servo.1 0
-sets servo.2 0
-sets servo.3 0
-sets servo.4 0
+# sets servo.1 0
+# sets servo.2 0
+# sets servo.3 0
+# sets servo.4 0
 
-net servo.1 bb_gpio.p8.out-25
-net servo.2 bb_gpio.p8.out-24
-net servo.3 bb_gpio.p8.out-23
-net servo.4 bb_gpio.p8.out-22
+# net servo.1 bb_gpio.p8.out-25
+# net servo.2 bb_gpio.p8.out-24
+# net servo.3 bb_gpio.p8.out-23
+# net servo.4 bb_gpio.p8.out-22
 
-
-# ##################################################
-# PWM and Temperature Signals
-# ##################################################
-
-# Define signals to use elsewhere (ie: M1xx codes)
-# If you change any names here, lots of things will break!
-newsig e0.temp.set   float
-newsig e0.temp.meas  float
-newsig bed.temp.set  float
-newsig bed.temp.meas float
-
-
-setp hpg.pwmgen.00.pwm_period       10000000
-
-# Bed Heater FET 1
-setp hpg.pwmgen.00.out.00.pin       811
-setp hpg.pwmgen.00.out.00.enable    1
-setp hpg.pwmgen.00.out.00.value     0.0
-
-# E0 Heater FET 2
-setp hpg.pwmgen.00.out.01.pin       915
-setp hpg.pwmgen.00.out.01.enable    1
-setp hpg.pwmgen.00.out.01.value     0.0
-
-# E1 Heater FET 3
-setp hpg.pwmgen.00.out.02.pin       927
-setp hpg.pwmgen.00.out.02.enable    1
-setp hpg.pwmgen.00.out.02.value     0.0
-
-# E2 Heater FET 4
-setp hpg.pwmgen.00.out.03.pin       921
-setp hpg.pwmgen.00.out.03.enable    1
-setp hpg.pwmgen.00.out.03.value     0.0
-
-# FET 5 - Fan / LED
-setp hpg.pwmgen.00.out.04.pin       941
-setp hpg.pwmgen.00.out.04.enable    1
-setp hpg.pwmgen.00.out.04.value     0.0
-
-# FET 6 - Fan / LED
-setp hpg.pwmgen.00.out.05.pin       922
-setp hpg.pwmgen.00.out.05.enable    1
-setp hpg.pwmgen.00.out.05.value     0.0
-
-# PID for Extruder 0 temperature control
-net e0.temp.meas    <= Therm.ch-04.value
-net e0.temp.meas    => pid.0.feedback
-
-sets e0.temp.set  0
-net e0.temp.set     => pid.0.command
-
-net e0.heater  <= pid.0.output
-net e0.heater  => limit1.0.in
-net e0.heaterl <= limit1.0.out
-net e0.heaterl => hpg.pwmgen.00.out.01.value
-
-# Limit heater PWM to positive values
-# PWM mimics hm2 implementation, which generates output for negative values
-setp limit1.0.min 0
-
-# PID for Bed temperature control
-net bed.temp.meas    <= Therm.ch-05.value
-net bed.temp.meas    => pid.1.feedback
-
-sets bed.temp.set  0
-net bed.temp.set     => pid.1.command
-
-net bed.heater  <= pid.1.output
-net bed.heater  => limit1.1.in
-net bed.heaterl <= limit1.1.out
-net bed.heaterl => hpg.pwmgen.00.out.00.value
-
-# Limit heater PWM to positive values
-# PWM mimics hm2 implementation, which generates output for negative values
-setp limit1.1.min 0
-
-# PID Parameters for adjusting temperature control
-# Extruder
-#setp pid.0.FF0      0
-#setp pid.0.FF1      0
-#setp pid.0.FF2      0
-setp pid.0.Pgain  0.30
-setp pid.0.Igain  0.00001
-setp pid.0.Dgain  0.9375
-setp pid.0.maxerrorI 1.0
-setp pid.0.bias    0.5
-setp pid.0.enable   1
-
-# Bed
-#setp pid.1.FF0      0
-#setp pid.1.FF1      0
-#setp pid.1.FF2      0
-setp pid.1.Pgain  1
-setp pid.1.Igain  0.0
-setp pid.1.Dgain  0.0
-setp pid.1.maxerrorI 1.0
-setp pid.1.bias    0.5
-setp pid.1.enable   1

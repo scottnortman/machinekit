@@ -90,21 +90,26 @@ sudo $(which config-pin) -f - <<- EOF
 	# Global Axis enable, shared for all axes
 	P9.14	high	# Axis Enable, active low, output_pins=914
 
+	# Note:  The min and max limits are configured as N.C. to HI,
+	#	therefore when asserted, they are open, and there is a
+	#	pull down resistor so they are LO TRUE.  This way, if the
+	#	cable fails, it is safe
+
 	# X AXIS PINS
-	P8.07	in 		# X Max, input_pins=> 807
-	P8.08	in		# X Min, input_pins=> 808
+	P8.07	in_pd	# X Max, input_pins=> 807
+	P8.08	in_pd	# X Min, input_pins=> 808
 	P8.12	low		# X Dir, Direction from stepgen => 812
 	P8.13	low		# X Step, Step from stepgen => 813
 
 	# Y AXIS PINS
-	P8.09	in		# Y Max, input_pins=> 809
-	P8.10	in		# Y Min, input_pins=> 810
+	P8.09	in_pd	# Y Max, input_pins=> 809
+	P8.10	in_pd	# Y Min, input_pins=> 810
 	P8.14	low		# Y Dir, Direction from stepgen => 814
 	P8.15	low		# Y Step, Step from stepgen => 815
 
 	# Z AXIS PINS
-	P9.11	in		# Z Max, input_pins=> 911
-	P9.13	in		# Z Min, input_pins=> 913
+	P9.11	in_pd	# Z Max, input_pins=> 911
+	P9.13	in_pd	# Z Min, input_pins=> 913
 	P8.18	low		# Z Dir, Direction from stepgen => 818
 	P8.19	low		# Z Step, Step from stepgen => 819
 
