@@ -1,5 +1,4 @@
 
-
 # #######################################
 #
 # HAL file for BeagleBone + CRAMPS cape with 4 steppers
@@ -164,15 +163,9 @@ setp hpg.stepgen.02.steppin        819
 # P8.29 PRU1.out9
 setp hpg.stepgen.02.dirpin         818
 
-\
-#setp hpg.stepgen.03.step_type       0
-# P8.30 GPIO2.25
-setp hpg.stepgen.03.steppin        916
-# P8.21 GPIO1.30
-setp hpg.stepgen.03.dirpin         912
 
 
-# ##################################################
+###################################################
 # Standard I/O - EStop, Enables, Limit Switches, Etc
 # ##################################################
 
@@ -219,12 +212,12 @@ net limit-z-min <= bb_gpio.p9.in-13
 net limit-z-max <= bb_gpio.p9.in-11
 
 # Adjust as needed for your switch polarity
-setp bb_gpio.p8.in-08.invert 1
+#setp bb_gpio.p8.in-08.invert 1
 setp bb_gpio.p8.in-07.invert 1
-setp bb_gpio.p8.in-10.invert 1
-setp bb_gpio.p8.in-09.invert 1
-setp bb_gpio.p9.in-11.invert 1
-setp bb_gpio.p9.in-13.invert 1
+#setp bb_gpio.p8.in-10.invert 1
+#setp bb_gpio.p8.in-09.invert 1
+#setp bb_gpio.p9.in-11.invert 1
+#setp bb_gpio.p9.in-13.invert 1
 
 # Uncomment if you actually have limit switches setup
 # You probably want to setup homing in the INI file, as well
@@ -278,4 +271,3 @@ net limit-z-max => axis.2.pos-lim-sw-in
 # net servo.2 bb_gpio.p8.out-24
 # net servo.3 bb_gpio.p8.out-23
 # net servo.4 bb_gpio.p8.out-22
-
