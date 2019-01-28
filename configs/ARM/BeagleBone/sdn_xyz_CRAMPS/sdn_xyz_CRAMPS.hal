@@ -30,8 +30,16 @@ loadrt tp
 loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES tp=tp kins=trivkins
 
 # load low-level drivers
-loadrt hal_bb_gpio output_pins=816,822,823,824,825,826,914,923,925 input_pins=807,808,809,810,817,911,913
+loadrt hal_bb_gpio output_pins=811,816,822,823,824,825,826,914,923,925,929 input_pins=807,808,809,810,817,911,913
 loadrt [PRUCONF](DRIVER) prucode=$(HAL_RTMOD_DIR)/[PRUCONF](PRUBIN) [PRUCONF](CONFIG) halname=hpg
+
+
+# scale / limit components for spindle PWM control
+loadrt scale count=1
+loadrt limit1 count=1
+
+# Userspace Adafruit PWM component
+loadusr -Wn pwm ../scripts/AdaHalPWM.py -n pwm -u 10 -c P9_29 -f 1000 -p 0
 
 # ################################################
 # THREADS
@@ -41,6 +49,10 @@ addf hpg.capture-position                 servo-thread
 addf bb_gpio.read                         servo-thread
 addf motion-command-handler               servo-thread
 addf motion-controller                    servo-thread
+
+addf scale.0				  servo-thread
+addf limit1.0				  servo-thread
+
 addf hpg.update                           servo-thread
 addf bb_gpio.write                        servo-thread
 
@@ -232,6 +244,55 @@ net limit-y-max => axis.1.pos-lim-sw-in
 net limit-z-min => axis.2.home-sw-in
 net limit-z-min => axis.2.neg-lim-sw-in
 net limit-z-max => axis.2.pos-lim-sw-in
+
+
+#########################################################################################################
+# SPINDLE SETUP
+# Spindle scale / offset example
+# https://github.com/LinuxCNC/linuxcnc/blob/master/configs/by_interface/parport/nist-lathe/nist-lathe.hal
+
+# spindle moves forward only
+#net spindle-forward <= spindle.0.forward
+#net spindle-forward => hpg.pwmgen.00.out.00.enable
+#net spindle-enable motion.spindle-on => hpg.pwmgen.00.out.00.enable
+net spindle-enable motion.spindle-on => pwm.enable
+
+# PWM for spindle control
+# Note:  Data taken from experiment,
+# these values actual spindle speed after
+# transmission
+# Spindle speed min = 2k RPM
+# Spindle speed max = 10k RPM
+# note period is 1024 us = 1024000 ns
+# pwm_value(RPM) = gain * RPM + offset
+# gain = 0.000122096423
+# offset = -0.222635361
+# min_value = 0.0234375
+# max_value = 1.0
+# note there is a discontinuity
+
+setp scale.0.gain 	0.0001745
+setp scale.0.offset    -0.2304
+
+setp limit1.0.min 	0.028
+setp limit1.0.max  	1.0
+
+# speed out in RPM
+net spindle-speed-cmd <= motion.spindle-speed-out
+net spindle-speed-cmd => scale.0.in 
+net spindle-speed-scl <= scale.0.out
+net spindle-speed-scl => limit1.0.in
+net spindle-speed-pwm <= limit1.0.out
+net spindle-speed-pwm => pwm.duty
+#net spindle-speed-pwm => hpg.pwmgen.00.out.00.value
+
+#setp hpg.pwmgen.00.pwm_period		1024000
+#setp hpg.pwmgen.00.pwm_period     	10000000		
+
+#setp hpg.pwmgen.00.out.00.pin 		811
+#setp hpg.pwmgen.00.out.00.pin		929
+#setp hpg.pwmgen.00.out.00.enable	1
+#setp hpg.pwmgen.00.out.00.value         0.0
 
 # ################
 # Servo signals
